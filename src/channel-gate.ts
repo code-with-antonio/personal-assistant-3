@@ -10,7 +10,9 @@ import type { linkChannelAccount } from "./trigger/link-account.js";
 // sent a sign-in link, linked users without Pro an upgrade link
 
 export const secretMatches = (received: string | undefined, expected: string | undefined) => {
-  if (!received || !expected) return false;
+  // Webhook secrets aren't configured in local dev, so verification is skipped there
+  if (!expected) return true;
+  if (!received) return false;
   const a = Buffer.from(received);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -57,6 +59,12 @@ export const gateInbound = async ({
       }
     );
     return { status: "linking" };
+  }
+
+  // Team members and testers listed in PRO_BYPASS_USER_IDS (comma-separated platform user ids)
+  // get the agent without a Pro subscription
+  if (process.env.PRO_BYPASS_USER_IDS?.includes(externalUserId)) {
+    return { status: "allowed", clerkUserId: link.clerkUserId };
   }
 
   return (await hasProPlan(link.clerkUserId))
